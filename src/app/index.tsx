@@ -1,98 +1,139 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { PaginationControls } from '../components/PaginationControls';
+import { ProductCard } from '../components/ProductCard';
+import type { Product, ProductsResponse } from '../types/product';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+const PAGE_SIZE = 10;
+
+export default function ProductsScreen() {
+  // State сохраняется между render. Setter запрашивает новый render компонента.
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Derived value: пересчитывается при render, отдельный state не нужен.
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // page и reloadKey — dependencies: изменение любого запускает effect снова.
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadProducts() {
+      setLoading(true);
+      setError(null);
+
+      // Страница 1 → skip 0, страница 2 → skip 10, страница 3 → skip 20.
+      const skip = (page - 1) * PAGE_SIZE;
+
+      try {
+        const response = await fetch(
+          `https://dummyjson.com/products?limit=${PAGE_SIZE}&skip=${skip}`,
+          { signal: controller.signal },
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status}`);
+        }
+
+        const data: ProductsResponse = await response.json();
+        if (controller.signal.aborted) return;
+
+        setProducts(data.products);
+        setTotal(data.total);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        if (controller.signal.aborted) return;
+
+        setError('Не удалось загрузить товары');
+      } finally {
+        // Старый отменённый запрос не должен выключить loading нового запроса.
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+
+    void loadProducts();
+
+    // Cleanup перед следующим effect и при размонтировании отменяет запрос.
+    return () => controller.abort();
+  }, [page, reloadKey]);
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Mini Store</Text>
+          <Text style={styles.subtitle}>Products from DummyJSON</Text>
+          <Text style={styles.total}>Всего товаров: {total}</Text>
+        </View>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+        <ScrollView contentContainerStyle={styles.content}>
+          {loading ? (
+            <View style={styles.message}>
+              <ActivityIndicator size="large" color="#2459C4" />
+              <Text style={styles.messageText}>Загрузка товаров...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.message}>
+              <Text style={styles.error} accessibilityRole="alert">{error}</Text>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.retry}
+                onPress={() => {
+                  setLoading(true);
+                  setReloadKey(prev => prev + 1);
+                }}
+              >
+                <Text style={styles.retryText}>Повторить</Text>
+              </Pressable>
+            </View>
+          ) : products.length === 0 ? (
+            <View style={styles.message}>
+              <Text style={styles.messageText}>Товары не найдены</Text>
+            </View>
+          ) : (
+            // На странице 10 товаров: ScrollView + map достаточно для урока.
+            products.map(product => <ProductCard key={product.id} product={product} />)
+          )}
+        </ScrollView>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+        {totalPages > 0 && (
+          <PaginationControls
+            page={page}
+            totalPages={totalPages}
+            loading={loading}
+            onPrevious={() => {
+              // Блокируем кнопки сразу, ещё до выполнения effect.
+              setLoading(true);
+              setPage(prev => prev - 1);
+            }}
+            onNext={() => {
+              setLoading(true);
+              setPage(prev => prev + 1);
+            }}
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
+  safeArea: { flex: 1, backgroundColor: '#F3F6FA' },
+  container: { flex: 1, padding: 16, gap: 16, width: '100%', maxWidth: 640, alignSelf: 'center' },
+  header: { gap: 6 },
+  title: { fontSize: 32, fontWeight: '700', color: '#172033' },
+  subtitle: { fontSize: 16, color: '#596579' },
+  total: { fontSize: 14, color: '#2459C4', marginTop: 4 },
+  content: { flexGrow: 1, gap: 16, paddingBottom: 8 },
+  message: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
+  messageText: { fontSize: 16, color: '#596579', textAlign: 'center' },
+  error: { fontSize: 16, color: '#B42318', textAlign: 'center' },
+  retry: { backgroundColor: '#2459C4', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 },
+  retryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });

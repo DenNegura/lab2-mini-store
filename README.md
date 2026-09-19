@@ -1,56 +1,125 @@
-# Welcome to your Expo app 👋
+# Mini Store
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Учебный React Native проект для студентов 3 курса: полный цикл загрузки данных находится в одном экране `src/app/index.tsx`.
 
-## Get started
+## Что изучает проект
 
-1. Install dependencies
+- useState
+- render cycle
+- useEffect
+- dependency array
+- fetch
+- loading/error/data и пустой результат
+- AbortController
+- pagination
 
-   ```bash
-   npm install
-   ```
+## Запуск
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Требуется Node.js 22.13+ (или более новая LTS-версия).
 
 ```bash
-npm run reset-project
+cd mini-store
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Если терминал уже открыт в `mini-store`, команду `cd` пропустите. Откройте приложение через Expo Go, совместимый с SDK 57, или нажмите `a` для Android-эмулятора, `i` для iOS-симулятора (macOS), `w` для браузера.
 
-### Other setup steps
+Стек: Expo SDK 57, React Native 0.86.3, React 19.2.3, TypeScript, Expo Router. Версии закреплены в `package.json` и `package-lock.json`; переход на другой SDK не требуется.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npm run lint
+npm run typecheck
+```
 
-## Learn more
+## API
 
-To learn more about developing your project with Expo, look at the following resources:
+https://dummyjson.com/products
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+HTTP выполняется стандартным `fetch`. Ответ содержит `products`, `total`, `skip`, `limit`. Модель товара находится в `src/types/product.ts`. Поле `product.thumbnail` напрямую передаётся в `Image source={{ uri: product.thumbnail }}`: изображение загружается отдельным HTTP-запросом.
 
-## Join the community
+## Pagination
 
-Join our community of developers creating universal apps.
+```text
+limit = 10
+skip = (page - 1) * limit
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+page 1 → skip 0
+page 2 → skip 10
+page 3 → skip 20
+```
+
+Пример: https://dummyjson.com/products?limit=10&skip=10
+
+`totalPages = Math.ceil(total / PAGE_SIZE)` — вычисляемое значение, а не отдельный state. Количество товаров приходит от сервера: оно не зафиксировано на 194. Каждая страница заменяет список, а не дописывает товары к нему.
+
+## Как читать код
+
+- `useState` хранит данные компонента между render. Setter запрашивает обновление state и новый render.
+- Render — React снова вызывает `ProductsScreen`, который возвращает JSX для текущего state. Сам render не выполняет HTTP-запрос.
+- `useEffect` синхронизирует компонент с внешней системой — здесь с API товаров.
+- `fetch` получает данные, `response.ok` проверяет HTTP-статус, `response.json()` читает JSON.
+- `page` запускает новый effect через dependency array. `reloadKey` позволяет повторить запрос той же страницы.
+
+```text
+Нажатие «Далее»
+  ↓
+setPage(prev => prev + 1)
+  ↓
+Новый state → React снова вызывает ProductsScreen → render → commit
+  ↓
+Изменилась dependency page в [page, reloadKey]
+  ↓
+Cleanup старого effect → новый effect → fetch
+  ↓
+setProducts / setTotal / setLoading
+  ↓
+Новый render → UI с товарами новой страницы
+```
+
+React может объединять несколько обновлений state в один render. Effect также выполняется после первоначального commit. В режиме разработки Strict Mode может дополнительно выполнить setup → cleanup → setup: отменённый запрос при этом ожидаем.
+
+## Состояния интерфейса
+
+- **Loading:** индикатор и «Загрузка товаров...». Пагинация временно отключена.
+- **Error:** «Не удалось загрузить товары» и кнопка «Повторить».
+- **Success:** карточки с изображением, названием, описанием и ценой.
+- **Empty:** «Товары не найдены». При `total = 0` пагинация скрыта, поэтому нет надписи «1 / 0».
+
+Перед запросом предыдущий `products` не очищается; на время загрузки карточки заменяются индикатором. Кнопки сразу выставляют `loading`, чтобы блокировать повторные нажатия ещё до effect. В самом effect `loading` также включается — это необходимо для первого запроса.
+
+Начальное значение `loading` — `false`, как в примере лекции. После первого commit effect включает индикатор; до него возможен краткий render пустого состояния.
+
+Cleanup вызывает `controller.abort()` при смене dependencies и размонтировании. `AbortError` не показывается пользователю. Проверка `signal.aborted` не позволяет старому запросу менять state, в том числе выключать индикатор нового запроса в `finally`.
+
+## Структура
+
+```text
+src/
+  app/
+    _layout.tsx
+    index.tsx
+  components/
+    ProductCard.tsx
+    PaginationControls.tsx
+  types/
+    product.ts
+```
+
+`_layout.tsx` подключает единственный экран через Expo Router. Safe area предоставляется Router и применяется через `SafeAreaView` из `react-native-safe-area-context`. На странице всего 10 товаров, поэтому достаточно `ScrollView` и `map`.
+
+## Проверка на занятии
+
+1. Открыть приложение: дождаться 10 карточек и общего количества товаров.
+2. Нажать «Далее»: проверить запрос с `skip=10`, новую страницу и заблокированные на время загрузки кнопки.
+3. Вернуться назад: запрос должен содержать `skip=0`; на первой странице «Назад» отключена.
+4. Дойти до последней страницы: «Далее» отключена, карточек может быть меньше десяти.
+5. В браузерных DevTools включить Offline, перейти на другую страницу: появится ошибка. Вернуть сеть и нажать «Повторить».
+6. Для демонстрации Empty временно заменить URL на `https://dummyjson.com/products/search?q=zzzznonexistentproductzzzz`, затем восстановить исходный URL.
+7. Для наблюдения cleanup включить замедление сети в DevTools и размонтировать экран во время запроса. Отмена не должна отображаться как ошибка.
+
+## Документация
+
+- [Совместимость версий Expo](https://docs.expo.dev/versions/latest/)
+- [React useEffect и cleanup](https://react.dev/reference/react/useEffect)
+- [Expo Router layouts](https://docs.expo.dev/router/basics/navigation-layouts/)
