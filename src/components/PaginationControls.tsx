@@ -24,7 +24,7 @@ export function PaginationControls({
         accessibilityRole="button"
         disabled={previousDisabled}
         onPress={onPrevious}
-        style={[styles.button, previousDisabled && styles.disabled]}
+        style={({ pressed }) => [styles.button, pressed && styles.pressed, previousDisabled && styles.disabled]}
       >
         <Text style={styles.buttonText}>← Назад</Text>
       </Pressable>
@@ -33,7 +33,7 @@ export function PaginationControls({
         accessibilityRole="button"
         disabled={nextDisabled}
         onPress={onNext}
-        style={[styles.button, nextDisabled && styles.disabled]}
+        style={({ pressed }) => [styles.button, pressed && styles.pressed, nextDisabled && styles.disabled]}
       >
         <Text style={styles.buttonText}>Далее →</Text>
       </Pressable>
@@ -45,6 +45,7 @@ const styles = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   button: { backgroundColor: '#2459C4', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 14, minHeight: 48 },
   buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  pressed: { opacity: 0.75 },
   disabled: { opacity: 0.4 },
   page: { flex: 1, textAlign: 'center', color: '#172033', fontSize: 14 },
 });

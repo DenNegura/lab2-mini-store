@@ -9,17 +9,19 @@ type ProductCardProps = {
 export function ProductCard({ product }: ProductCardProps) {
   return (
     <View style={styles.card}>
-      <Image
+      {product.thumbnail ? <Image
         source={{ uri: product.thumbnail }}
         style={styles.image}
         resizeMode="contain"
         accessibilityLabel={product.title}
-      />
+      /> : <View style={styles.placeholder}><Text style={styles.description}>Нет изображения</Text></View>}
       <View style={styles.details}>
         <Text style={styles.title}>{product.title}</Text>
         <Text style={styles.description} numberOfLines={3}>
           {product.description}
         </Text>
+        {product.category && <Text style={styles.description}>{product.category}</Text>}
+        {product.rating !== undefined && <Text style={styles.description}>Рейтинг: {product.rating}</Text>}
         <Text style={styles.price}>${product.price.toFixed(2)}</Text>
       </View>
     </View>
@@ -36,6 +38,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   image: { width: '100%', height: 180, backgroundColor: '#F8FAFC', borderRadius: 12 },
+  placeholder: { height: 100, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC', borderRadius: 12 },
   details: { gap: 8 },
   title: { fontSize: 20, fontWeight: '600', color: '#172033' },
   description: { fontSize: 15, lineHeight: 22, color: '#596579' },
