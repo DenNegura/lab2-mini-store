@@ -46,8 +46,8 @@ export function ProductForm({onSubmit}: ProductFormProps) {
 
     return (
         <View style={styles.form}>
-            <Text style={styles.heading}>Добавить локальный товар</Text>
-            <Text style={styles.hint}>Товар хранится только до перезапуска приложения.</Text>
+            <Text style={styles.heading}>Новый товар</Text>
+            <Text style={styles.hint}>Учебная форма: проверим данные. Общее состояние добавим в следующей теме.</Text>
             <Text style={styles.label}>Название</Text>
             <TextInput
                 value={title}
@@ -94,7 +94,7 @@ export function ProductForm({onSubmit}: ProductFormProps) {
                 onPress={handleSubmit}
                 style={({pressed}) => [styles.button, pressed && styles.pressed]}
             >
-                <Text style={styles.buttonText}>Добавить товар</Text>
+                <Text style={styles.buttonText}>Проверить и завершить</Text>
             </Pressable>
         </View>
     );

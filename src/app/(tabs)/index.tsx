@@ -1,12 +1,12 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PaginationControls } from '../components/PaginationControls';
-import { ProductCard } from '../components/ProductCard';
-import { ProductForm } from '../components/ProductForm';
-import { SearchInput } from '../components/SearchInput';
-import type { Product, ProductsResponse } from '../types/product';
+import { PaginationControls } from '../../components/PaginationControls';
+import { ProductCard } from '../../components/ProductCard';
+import { SearchInput } from '../../components/SearchInput';
+import type { Product, ProductsResponse } from '../../types/product';
 
 const PAGE_SIZE = 10;
 
@@ -15,6 +15,7 @@ function ItemSeparator() {
 }
 
 export default function ProductsScreen() {
+  const router = useRouter();
   // State сохраняется между render. Setter запрашивает новый render компонента.
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,23 +24,16 @@ export default function ProductsScreen() {
   const [total, setTotal] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [localProducts, setLocalProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  const visibleProducts = [...localProducts, ...products];
   const normalizedSearch = search.trim().toLowerCase();
 
   // filteredProducts вычисляется во время render.
   // Его не нужно хранить в state или синхронизировать через useEffect.
-  const filteredProducts = visibleProducts.filter(product =>
+  const filteredProducts = products.filter(product =>
     product.title.toLowerCase().includes(normalizedSearch),
   );
-
-  function addProduct(newProduct: Product) {
-    // functional update: новое значение зависит от предыдущего массива.
-    setLocalProducts(prev => [newProduct, ...prev]);
-  }
 
   // Derived value: пересчитывается при render, отдельный state не нужен.
   const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -94,7 +88,7 @@ export default function ProductsScreen() {
   // "handled"	интерактивный элемент получает tap, если он его обрабатывает
   // "always"	tap по контенту не закрывает клавиатуру автоматически
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.container}
@@ -119,12 +113,44 @@ export default function ProductsScreen() {
             <View style={styles.header}>
               <Text style={styles.title}>Mini Store</Text>
               <Text style={styles.subtitle}>Products from DummyJSON</Text>
-              <Text style={styles.total}>На сервере: {total} · Локальных: {localProducts.length}</Text>
+              <Text style={styles.total}>На сервере: {total}</Text>
               <SearchInput value={search} onChangeText={setSearch} />
-              <ProductForm onSubmit={addProduct} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  // router.push добавляет route в navigation history.
+                  router.push('/add-product');
+                }}
+                style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
+              >
+                <Text style={styles.retryText}>+ Новый товар</Text>
+              </Pressable>
+              {loading && !refreshing && (
+                <View style={styles.message}>
+                  <ActivityIndicator size="large" color="#2459C4" />
+                  <Text style={styles.messageText}>Загрузка товаров...</Text>
+                </View>
+              )}
+              {error && (
+                <View style={styles.message}>
+                  <Text style={styles.error} accessibilityRole="alert">{error}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={loading || refreshing}
+                    onPress={() => {
+                      setLoading(true);
+                      setReloadKey(prev => prev + 1);
+                    }}
+                    style={({ pressed }) => [styles.retry, pressed && styles.pressed,
+                      (loading || refreshing) && styles.disabled]}
+                  >
+                    <Text style={styles.retryText}>Повторить</Text>
+                  </Pressable>
+                </View>
+              )}
               <Text style={styles.sectionTitle}>Товары</Text>
               <Text style={styles.subtitle}>
-                Поиск по текущей странице и локальным товарам. Найдено: {filteredProducts.length}
+                Поиск по текущей странице. Найдено: {filteredProducts.length}
               </Text>
             </View>
           }
