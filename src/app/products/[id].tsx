@@ -1,50 +1,17 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import type { Product } from '../../types/product';
+import { useProduct } from '../../hooks/useProduct';
 
 export default function ProductDetailsScreen() {
   // [id].tsx создаёт dynamic route. Значение id приходит из URL.
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const requestId = Number(id);
-    if (typeof id !== 'string' || !Number.isSafeInteger(requestId) || requestId <= 0) {
-      return () => controller.abort();
-    }
-
-    async function loadProduct() {
-      setProduct(null);
-      setError(null);
-      setLoading(true);
-      try {
-        const response = await fetch(`https://dummyjson.com/products/${requestId}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error(response.status === 404 ? 'Товар не найден' : 'Не удалось загрузить товар');
-        }
-        const data: Product = await response.json();
-        if (!controller.signal.aborted) setProduct(data);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        setError(error instanceof Error ? error.message : 'Не удалось загрузить товар');
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-
-    void loadProduct();
-    return () => controller.abort();
-    // route parameter становится dependency:
-    // другой id → другой внешний ресурс → новый request.
-  }, [id]);
+  const parsedId = Number(id);
+  const productId = typeof id === 'string' && Number.isSafeInteger(parsedId) && parsedId > 0
+    ? parsedId
+    : null;
+  const { product, loading, error } = useProduct(productId);
 
   return (
     <SafeAreaView style={styles.screen} edges={['left', 'right', 'bottom']}>

@@ -1,14 +1,13 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PaginationControls } from '../../components/PaginationControls';
 import { ProductCard } from '../../components/ProductCard';
 import { SearchInput } from '../../components/SearchInput';
-import type { Product, ProductsResponse } from '../../types/product';
-
-const PAGE_SIZE = 10;
+import { useProducts } from '../../hooks/useProducts';
+import type { Product } from '../../types/product';
 
 function ItemSeparator() {
   return <View style={styles.separator} />;
@@ -16,16 +15,12 @@ function ItemSeparator() {
 
 export default function ProductsScreen() {
   const router = useRouter();
-  // State сохраняется между render. Setter запрашивает новый render компонента.
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [reloadKey, setReloadKey] = useState(0);
-
   const [search, setSearch] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const {
+    products, total, loading, error, refreshing, pageSize,
+    refresh, retry, preparePageChange,
+  } = useProducts(page);
 
   const normalizedSearch = search.trim().toLowerCase();
 
@@ -36,53 +31,8 @@ export default function ProductsScreen() {
   );
 
   // Derived value: пересчитывается при render, отдельный state не нужен.
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
 
-  // page и reloadKey — dependencies: изменение любого запускает effect снова.
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadProducts() {
-      setLoading(true);
-      setError(null);
-
-      // server-side pagination: page определяет skip.
-      const skip = (page - 1) * PAGE_SIZE;
-
-      try {
-        const response = await fetch(
-          `https://dummyjson.com/products?limit=${PAGE_SIZE}&skip=${skip}`,
-          { signal: controller.signal },
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
-        }
-
-        const data: ProductsResponse = await response.json();
-        if (controller.signal.aborted) return;
-
-        setProducts(data.products);
-        setTotal(data.total);
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        if (controller.signal.aborted) return;
-
-        setError('Не удалось загрузить товары');
-      } finally {
-        // Старый отменённый запрос не должен выключить loading нового запроса.
-        if (!controller.signal.aborted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    }
-
-    void loadProducts();
-
-    // Cleanup перед следующим effect и при размонтировании отменяет запрос.
-    return () => controller.abort();
-  }, [page, reloadKey]);
   // keyboardShouldPersistTaps:
   // "never"	tap по контенту обычно закрывает клавиатуру
   // "handled"	интерактивный элемент получает tap, если он его обрабатывает
@@ -103,12 +53,7 @@ export default function ProductsScreen() {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           refreshing={refreshing}
-          onRefresh={() => {
-            if (loading || refreshing) return;
-            setRefreshing(true);
-            setLoading(true);
-            setReloadKey(prev => prev + 1);
-          }}
+          onRefresh={refresh}
           ListHeaderComponent={
             <View style={styles.header}>
               <Text style={styles.title}>Mini Store</Text>
@@ -137,10 +82,7 @@ export default function ProductsScreen() {
                   <Pressable
                     accessibilityRole="button"
                     disabled={loading || refreshing}
-                    onPress={() => {
-                      setLoading(true);
-                      setReloadKey(prev => prev + 1);
-                    }}
+                    onPress={retry}
                     style={({ pressed }) => [styles.retry, pressed && styles.pressed,
                       (loading || refreshing) && styles.disabled]}
                   >
@@ -170,11 +112,11 @@ export default function ProductsScreen() {
                 totalPages={totalPages}
                 loading={loading || refreshing}
                 onPrevious={() => {
-                  setLoading(true);
+                  preparePageChange();
                   setPage(prev => prev - 1);
                 }}
                 onNext={() => {
-                  setLoading(true);
+                  preparePageChange();
                   setPage(prev => prev + 1);
                 }}
               />

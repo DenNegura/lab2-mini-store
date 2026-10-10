@@ -26,7 +26,7 @@ npm run typecheck
 - Учебный `src/examples/SectionListExample.tsx` сохранён отдельно от routes.
 
 ```text
-API → useEffect [page, reloadKey] → products → FlatList → pagination
+ProductsScreen → useProducts(page) → getProducts(page, PAGE_SIZE, signal) → DummyJSON
 products + search → filteredProducts → ProductCard
 TextInput → local form state → validation → onSubmit
 ```
@@ -43,7 +43,7 @@ Refresh и retry увеличивают `reloadKey`, смена страницы
 
 Главная последовательность: file-based routing → `_layout.tsx` → Stack → Link / useRouter → dynamic routes → route params → route groups → Tabs → Modal → Mini Store v3.
 
-Форма вынесена из header списка на отдельный route. Добавлены root Stack, nested Tabs, Favorites-заглушка, Product Details, `Link` + `asChild`, `useRouter`, `[id]`, `useLocalSearchParams` и modal route. Дополнительной data architecture нет.
+Форма вынесена из header списка на отдельный route. Добавлены root Stack, nested Tabs, Favorites-заглушка, Product Details, `Link` + `asChild`, `useRouter`, `[id]`, `useLocalSearchParams` и modal route. Разделение загрузки данных по ответственности описано ниже в лабораторной №5.
 
 ## File-based routing
 
@@ -63,6 +63,11 @@ src/
 │   ├── ProductForm.tsx
 │   ├── SearchInput.tsx
 │   └── PaginationControls.tsx
+├── api/
+│   └── productsApi.ts
+├── hooks/
+│   ├── useProducts.ts
+│   └── useProduct.ts
 ├── examples/
 │   └── SectionListExample.tsx
 └── types/
@@ -82,7 +87,7 @@ src/
 
 ## _layout.tsx
 
-Root `_layout.tsx` описывает navigation hierarchy через Stack; `(tabs)/_layout.tsx` описывает вложенный Tabs. Layout отвечает за navigator, screen configuration и headers. Fetch, search, pagination и form state остаются на соответствующих экранах. Существующий `StatusBar` сохранён.
+Root `_layout.tsx` описывает navigation hierarchy через Stack; `(tabs)/_layout.tsx` описывает вложенный Tabs. Layout отвечает за navigator, screen configuration и headers. Search и page остаются в ProductsScreen, поля формы — в ProductForm. Fetch находится в api/, lifecycle загрузки — в hooks/. Существующий `StatusBar` сохранён.
 
 ```text
 Root Stack
@@ -145,7 +150,7 @@ const { id } = useLocalSearchParams<{ id: string }>();
 const productId = Number(id);
 ```
 
-Generic описывает ожидаемую форму параметра, но не заменяет runtime validation. Проверяем строку, положительное безопасное целое число. Некорректный id показывает сообщение без запроса. HTTP 404 показывает «Товар не найден», остальные ошибки — сообщение, приложение не падает.
+Generic описывает ожидаемую форму параметра, но не заменяет runtime validation. Проверяем строку, положительное безопасное целое число. Некорректный id не запускает запрос; существующий экран остаётся в loading (это поведение сохранено при рефакторинге). HTTP 404 показывает «Товар не найден», остальные ошибки — сообщение, приложение не падает.
 
 Dynamic segment `/products/42` идентифицирует ресурс. Query parameter, например `/products?category=beauty`, задаёт дополнительное состояние URL:
 
@@ -158,7 +163,7 @@ const { category } = useLocalSearchParams<{ category?: string }>();
 ## Route parameter + Effect
 
 ```text
-id → useEffect [id] → fetch /products/{id} → Product
+ProductDetailsScreen → useProduct(productId) → getProduct(id, signal) → Product
 ```
 
 Изменился id — изменился внешний ресурс — выполняется новый request. Effect сохраняет знакомую модель `product`, `loading`, `error`, `response.ok` и AbortController cleanup. Отмена не показывается как ошибка. Details отображает image, title, description, price, category и rating.
@@ -197,7 +202,7 @@ Context, useReducer, Zustand, Redux, query cache, module-level mutable state, ev
 
 ## Что будет дальше
 
-Shared state / architecture — отдельная следующая тема: как согласовать данные каталога, формы и Favorites без обходных решений.
+Shared state — отдельная следующая тема: как согласовать данные каталога, формы и Favorites без обходных решений.
 
 ## Проверка на занятии
 
@@ -208,7 +213,7 @@ Shared state / architecture — отдельная следующая тема: 
 5. Открыть modal снова, отправить пустую форму, проверить ошибки. Проверить название из одного символа, короткое описание, цену 0, отрицательную и нечисловую цену.
 6. Ввести корректные данные с ценой `12,50`, выполнить submit, увидеть подтверждение, нажать «Вернуться к товарам». Каталог не изменяется.
 7. Проверить keyboard avoidance и обработку первого tap при открытой клавиатуре на iOS/Android. Проверить системный Android Back.
-8. На web открыть `/products/abc`, `/products/0`, `/products/1.5`: понятная ошибка без запроса. Открыть `/products/999999`: «Товар не найден».
+8. На web открыть `/products/abc`, `/products/0`, `/products/1.5`: запрос не выполняется, сохраняется исходный loading. Открыть `/products/999999`: «Товар не найден».
 9. В Offline проверить error на Details и ошибку + retry на Products; восстановить сеть. При медленной сети сменить id и убедиться в cleanup предыдущего запроса.
 
 ## Документация
@@ -218,3 +223,22 @@ Shared state / architecture — отдельная следующая тема: 
 - [Link / asChild SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/router/link/)
 - [Stack SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/router/stack/)
 - [React useEffect и cleanup](https://react.dev/reference/react/useEffect)
+
+
+## Лабораторная №5 — организация кода
+
+Рефакторинг сохраняет routes, стили, endpoints и пользовательские сценарии.
+
+- `api/productsApi.ts`: `getProducts` и `getProduct`, URL, pagination query params, `fetch`, проверка HTTP status и JSON. Это обычные async functions без зависимости от React; `AbortSignal` передаётся вызывающим hook.
+- `hooks/useProducts.ts`: локальные `products`, `total`, `loading`, `error`, `refreshing`, `reloadKey`; effect с dependencies `[page, reloadKey]`, retry и refresh. `PAGE_SIZE = 10` находится здесь и возвращается как `pageSize`. `preparePageChange` сохраняет немедленную блокировку pagination перед изменением page.
+- `hooks/useProduct.ts`: локальные `product`, `loading`, `error`; проверка id и effect с dependencies `[id]`.
+- Оба hooks создают `AbortController`, отменяют запрос в cleanup, игнорируют `AbortError` и защищают state от устаревшего ответа. Каждый вызов hook имеет собственный state; общего store или cache нет.
+- `app/(tabs)/index.tsx`: `page`, `search`, вычисляемые `normalizedSearch`, `filteredProducts`, `totalPages`, UI и navigation.
+- `app/products/[id].tsx`: чтение и преобразование route parameter, `useProduct`, loading/error/success UI и Stack title.
+- `ProductForm`: прежние локальные `title`, `price`, `description`, `imageUrl`, `submitted`, validation и callback `onSubmit`.
+- UI-компоненты используют props/callbacks; ProductCard получает Product, PaginationControls получает page/totalPages/loading и сообщает действия через callbacks.
+- `types/product.ts`: уже существовавшие общие Product и ProductsResponse, включая category и rating; дублирования нет.
+
+Favorites остаётся учебной заглушкой. Add Product сохраняет локальное подтверждение формы без POST и добавления в каталог.
+
+Проверки до и после рефакторинга: `npm run lint`, `npm run typecheck` (`tsc --noEmit`) и web export проходят. Статическая HTML-разметка восьми routes совпала до и после с исключением имени JS bundle. Проверка API с подменённым fetch подтвердила URL, pagination, JSON, передачу signal, ошибки 404/500 и проброс AbortError. Интерактивные сценарии на устройстве требуют ручной проверки по списку выше.
