@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useProduct } from '../../hooks/useProduct';
+import { FavoriteButton } from '../../components/FavoriteButton';
 
 export default function ProductDetailsScreen() {
   // [id].tsx создаёт dynamic route. Значение id приходит из URL.
@@ -31,6 +32,7 @@ export default function ProductDetailsScreen() {
           <Text style={styles.title}>{product.title}</Text>
           <Text style={styles.description}>{product.description}</Text>
           <Text style={styles.price}>${product.price.toFixed(2)}</Text>
+          <FavoriteButton product={product} />
           {product.category && <Text style={styles.description}>Категория: {product.category}</Text>}
           {product.rating !== undefined && <Text style={styles.description}>Рейтинг: {product.rating}</Text>}
         </ScrollView>

@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { Pressable, Image, StyleSheet, Text, View } from 'react-native';
 
 import type { Product } from '../types/product';
+import { FavoriteButton } from './FavoriteButton';
 
 type ProductCardProps = {
   product: Product;
@@ -9,35 +10,39 @@ type ProductCardProps = {
 
 export function ProductCard({ product }: ProductCardProps) {
   return (
-    // Link описывает декларативный переход; в URL передаём только id.
-    <Link href={{ pathname: '/products/[id]', params: { id: product.id } }} asChild>
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={`Открыть товар: ${product.title}`}
-        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-      >
-        {product.thumbnail ? <Image
-          source={{ uri: product.thumbnail }}
-          style={styles.image}
-          resizeMode="contain"
-          accessibilityLabel={product.title}
-        /> : <View style={styles.placeholder}><Text style={styles.description}>Нет изображения</Text></View>}
-        <View style={styles.details}>
-          <Text style={styles.title}>{product.title}</Text>
-          <Text style={styles.description} numberOfLines={3}>
-            {product.description}
-          </Text>
-          {product.category && <Text style={styles.description}>{product.category}</Text>}
-          {product.rating !== undefined && <Text style={styles.description}>Рейтинг: {product.rating}</Text>}
-          <Text style={styles.price}>${product.price.toFixed(2)}</Text>
-        </View>
-      </Pressable>
-    </Link>
+    <View style={styles.card}>
+      {/* Link описывает декларативный переход; в URL передаём только id. */}
+      <Link href={{ pathname: '/products/[id]', params: { id: product.id } }} asChild>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`Открыть товар: ${product.title}`}
+          style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+        >
+          {product.thumbnail ? <Image
+            source={{ uri: product.thumbnail }}
+            style={styles.image}
+            resizeMode="contain"
+            accessibilityLabel={product.title}
+          /> : <View style={styles.placeholder}><Text style={styles.description}>Нет изображения</Text></View>}
+          <View style={styles.details}>
+            <Text style={styles.title}>{product.title}</Text>
+            <Text style={styles.description} numberOfLines={3}>
+              {product.description}
+            </Text>
+            {product.category && <Text style={styles.description}>{product.category}</Text>}
+            {product.rating !== undefined && <Text style={styles.description}>Рейтинг: {product.rating}</Text>}
+            <Text style={styles.price}>${product.price.toFixed(2)}</Text>
+          </View>
+        </Pressable>
+      </Link>
+      <FavoriteButton product={product} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   pressed: { opacity: 0.75 },
+  link: { gap: 16 },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
