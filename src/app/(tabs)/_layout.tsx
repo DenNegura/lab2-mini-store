@@ -23,6 +23,10 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="local-products" options={{
+        title: 'Local products',
+        tabBarIcon: ({ color, size }) => <Text accessible={false} style={{ color, fontSize: size }}>▤</Text>,
+      }} />
     </Tabs>
   );
 }

@@ -4,15 +4,19 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProductForm } from '../components/ProductForm';
-import type { Product } from '../types/product';
+import { useLocalProducts } from '../hooks/useLocalProducts';
+import type { NewLocalProduct } from '../types/localProduct';
 
 export default function AddProductScreen() {
   const router = useRouter();
-  const [submittedProduct, setSubmittedProduct] = useState<Product | null>(null);
+  const [submittedProduct, setSubmittedProduct] = useState<NewLocalProduct | null>(null);
 
-  function handleSubmit(product: Product) {
-    // Navigation не создаёт shared application state: результат остаётся на этом экране.
-    setSubmittedProduct(product);
+  const { addProduct, loading, error } = useLocalProducts();
+
+  async function handleSubmit(product: NewLocalProduct) {
+    const saved = await addProduct(product);
+    if (saved) setSubmittedProduct(product);
+    return saved;
   }
 
   return (
@@ -21,16 +25,16 @@ export default function AddProductScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {submittedProduct ? (
             <>
-              <Text style={styles.title}>Форма заполнена</Text>
+              <Text style={styles.title}>Товар сохранён</Text>
               <Text style={styles.description} accessibilityRole="alert">
-                Данные «{submittedProduct.title}» прошли проверку. Товар не добавлен в каталог.
-                Общее состояние добавим в следующей теме.
+                Товар «{submittedProduct.title}» сохранён в SQLite. Он доступен во вкладке Local products.
               </Text>
               <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
                 <Text style={styles.buttonText}>Вернуться к товарам</Text>
               </Pressable>
             </>
-          ) : <ProductForm onSubmit={handleSubmit} />}
+          ) : <ProductForm onSubmit={handleSubmit} saving={loading} />}
+          {error && <Text accessibilityRole="alert" style={styles.description}>{error}</Text>}
           <Pressable accessibilityRole="button" onPress={() => router.back()} style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}>
             <Text style={styles.cancelText}>Отмена</Text>
           </Pressable>

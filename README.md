@@ -74,12 +74,12 @@ src/
     └── product.ts
 ```
 
-| Файл | URL |
-| --- | --- |
-| `src/app/(tabs)/index.tsx` | `/` |
-| `src/app/(tabs)/favorites.tsx` | `/favorites` |
-| `src/app/products/[id].tsx` | `/products/:id`, например `/products/42` |
-| `src/app/add-product.tsx` | `/add-product` |
+| Файл                           | URL                                      |
+| ------------------------------ | ---------------------------------------- |
+| `src/app/(tabs)/index.tsx`     | `/`                                      |
+| `src/app/(tabs)/favorites.tsx` | `/favorites`                             |
+| `src/app/products/[id].tsx`    | `/products/:id`, например `/products/42` |
+| `src/app/add-product.tsx`      | `/add-product`                           |
 
 Обычные директории становятся URL segments, `index.tsx` — route текущей директории, `[id].tsx` — dynamic segment. Route group `(tabs)` и `_layout.tsx` не являются URL segments. Все page-файлы имеют default export.
 
@@ -109,12 +109,12 @@ Products → push Add Product modal → back → Products
 
 Stack хранит историю экранов. Details и Add Product находятся поверх Tabs и не являются отдельными вкладками. Header Back и Android Back используют эту иерархию естественным образом.
 
-| Метод | Смысл |
-| --- | --- |
+| Метод             | Смысл                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------ |
 | `navigate(route)` | Обычный переход; router может перейти к уже существующему route в hierarchy/history. |
-| `push(route)` | Явно добавляет новый route поверх stack в navigation history. |
-| `replace(route)` | Заменяет текущий route; Back не возвращает заменённый экран. |
-| `back()` | Снимает верхний route и возвращает предыдущий экран. |
+| `push(route)`     | Явно добавляет новый route поверх stack в navigation history.                        |
+| `replace(route)`  | Заменяет текущий route; Back не возвращает заменённый экран.                         |
+| `back()`          | Снимает верхний route и возвращает предыдущий экран.                                 |
 
 `replace` и `navigate` приведены как понятия, искусственно добавлять их в runtime не требуется.
 
@@ -123,10 +123,7 @@ Stack хранит историю экранов. Details и Add Product нах�
 `Link` — декларативный переход как часть UI. ProductCard сохраняет прежний вид и становится кликабельной:
 
 ```tsx
-<Link
-  href={{ pathname: '/products/[id]', params: { id: product.id } }}
-  asChild
->
+<Link href={{ pathname: "/products/[id]", params: { id: product.id } }} asChild>
   <Pressable>{/* содержимое карточки */}</Pressable>
 </Link>
 ```
@@ -137,7 +134,7 @@ Stack хранит историю экранов. Details и Add Product нах�
 
 ```tsx
 const router = useRouter();
-router.push('/add-product'); // кнопка «+ Новый товар»
+router.push("/add-product"); // кнопка «+ Новый товар»
 router.back(); // «Отмена» или возврат после подтверждения
 ```
 
@@ -171,7 +168,7 @@ ProductDetailsScreen → useProduct(productId) → getProduct(id, signal) → Pr
 Заголовок обновляется конфигурацией экрана:
 
 ```tsx
-<Stack.Screen options={{ title: product?.title ?? 'Product' }} />
+<Stack.Screen options={{ title: product?.title ?? "Product" }} />
 ```
 
 ## Route groups
@@ -224,7 +221,6 @@ Shared state — отдельная следующая тема: как согл
 - [Stack SDK 57](https://docs.expo.dev/versions/v57.0.0/sdk/router/stack/)
 - [React useEffect и cleanup](https://react.dev/reference/react/useEffect)
 
-
 ## Лабораторная №5 — организация кода
 
 Рефакторинг сохраняет routes, стили, endpoints и пользовательские сценарии.
@@ -242,3 +238,7 @@ Shared state — отдельная следующая тема: как согл
 Favorites остаётся учебной заглушкой. Add Product сохраняет локальное подтверждение формы без POST и добавления в каталог.
 
 Проверки до и после рефакторинга: `npm run lint`, `npm run typecheck` (`tsc --noEmit`) и web export проходят. Статическая HTML-разметка восьми routes совпала до и после с исключением имени JS bundle. Проверка API с подменённым fetch подтвердила URL, pagination, JSON, передачу signal, ошибки 404/500 и проброс AbortError. Интерактивные сценарии на устройстве требуют ручной проверки по списку выше.
+
+трансляция экрана телефона:
+scrcpy
+scrcpy --tcpip

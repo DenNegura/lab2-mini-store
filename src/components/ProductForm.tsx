@@ -1,17 +1,18 @@
 import {useState} from 'react';
 import {Keyboard, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 
-import type {Product} from '../types/product';
+import type {NewLocalProduct} from '../types/localProduct';
 
 type ProductFormProps = {
-    onSubmit: (product: Product) => void;
+    onSubmit: (product: NewLocalProduct) => Promise<boolean>;
+    initialProduct?: NewLocalProduct;
+    saving?: boolean;
 };
 
-export function ProductForm({onSubmit}: ProductFormProps) {
-    const [title, setTitle] = useState('');
-    const [price, setPrice] = useState('');
-    const [description, setDescription] = useState('');
-    const [imageUrl, setImageUrl] = useState('');
+export function ProductForm({onSubmit, initialProduct, saving = false}: ProductFormProps) {
+    const [title, setTitle] = useState(initialProduct?.title ?? '');
+    const [price, setPrice] = useState(initialProduct ? String(initialProduct.price) : '');
+    const [description, setDescription] = useState(initialProduct?.description ?? '');
     const [submitted, setSubmitted] = useState(false);
 
     // Ошибки вычисляются из state; показываем их после первой попытки submit.
@@ -24,30 +25,27 @@ export function ProductForm({onSubmit}: ProductFormProps) {
         ? 'Введите описание: минимум 5 символов'
         : null;
 
-    function handleSubmit() {
+    async function handleSubmit() {
         setSubmitted(true);
-        if (titleError || priceError || descriptionError) return;
+        if (saving || titleError || priceError || descriptionError) return;
 
-        onSubmit({
-            id: Date.now(),
+        const saved = await onSubmit({
             title: title.trim(),
             price: numericPrice,
             description: description.trim(),
-            thumbnail: imageUrl.trim(),
-            category: 'Локальный товар',
         });
+        if (!saved) return;
         setTitle('');
         setPrice('');
         setDescription('');
-        setImageUrl('');
         setSubmitted(false);
         Keyboard.dismiss();
     }
 
     return (
         <View style={styles.form}>
-            <Text style={styles.heading}>Новый товар</Text>
-            <Text style={styles.hint}>Учебная форма: проверим данные. Общее состояние добавим в следующей теме.</Text>
+            <Text style={styles.heading}>{initialProduct ? 'Изменить товар' : 'Новый товар'}</Text>
+            <Text style={styles.hint}>Товар сохраняется локально на устройстве.</Text>
             <Text style={styles.label}>Название</Text>
             <TextInput
                 value={title}
@@ -78,23 +76,13 @@ export function ProductForm({onSubmit}: ProductFormProps) {
             />
             {submitted && descriptionError &&
                 <Text style={styles.error} accessibilityRole="alert">{descriptionError}</Text>}
-            <Text style={styles.label}>Image URL (необязательно)</Text>
-            <TextInput
-                value={imageUrl}
-                onChangeText={setImageUrl}
-                inputMode="url"
-                autoCapitalize="none"
-                autoCorrect={false}
-                accessibilityLabel="URL изображения, необязательно"
-                placeholder="https://..."
-                style={styles.input}
-            />
             <Pressable
                 accessibilityRole="button"
                 onPress={handleSubmit}
+                disabled={saving}
                 style={({pressed}) => [styles.button, pressed && styles.pressed]}
             >
-                <Text style={styles.buttonText}>Проверить и завершить</Text>
+                <Text style={styles.buttonText}>{saving ? 'Сохранение...' : 'Сохранить'}</Text>
             </Pressable>
         </View>
     );
